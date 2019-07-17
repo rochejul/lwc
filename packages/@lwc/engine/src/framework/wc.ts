@@ -5,11 +5,11 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
  */
 import { ComponentConstructor } from './component';
-import { isUndefined, isObject, isNull, getOwnPropertyNames, ArrayMap } from '../shared/language';
+import { isUndefined, isObject, isNull, ArrayReduce, keys } from '../shared/language';
 import { createVM, appendRootVM, removeRootVM, getCustomElementVM, CreateVMInit } from './vm';
 import { EmptyObject } from './utils';
 import { getComponentDef } from './def';
-import { getPropNameFromAttrName, isAttributeLocked } from './attributes';
+import { isAttributeLocked, getAttrNameFromPropName } from './attributes';
 import { HTMLElementConstructor } from './base-bridge-element';
 import { patchCustomElementWithRestrictions } from './restrictions';
 
@@ -30,6 +30,16 @@ export function buildCustomElementConstructor(
     options?: ShadowRootInit
 ): HTMLElementConstructor {
     const { props, bridge: BaseElement } = getComponentDef(Ctor);
+    // generating the hash table for attributes to avoid duplicate fields
+    // and facilitate validation and false positives in case of inheritance.
+    const attributeToPropMap = ArrayReduce.call(
+        props,
+        (reducer: Record<string, string>, propName: string) => {
+            reducer[getAttrNameFromPropName(propName)] = propName;
+            return reducer;
+        },
+        {}
+    ) as Record<string, string>;
     const normalizedOptions: CreateVMInit = {
         mode: 'open',
         isRoot: true,
@@ -62,8 +72,8 @@ export function buildCustomElementConstructor(
                 // ignoring similar values for better perf
                 return;
             }
-            const propName = getPropNameFromAttrName(attrName);
-            if (isUndefined(props[propName])) {
+            const propName = attributeToPropMap[attrName];
+            if (isUndefined(propName)) {
                 // ignoring unknown attributes
                 return;
             }
@@ -81,9 +91,6 @@ export function buildCustomElementConstructor(
         }
         // collecting all attribute names from all public props to apply
         // the reflection from attributes to props via attributeChangedCallback.
-        static observedAttributes = ArrayMap.call(
-            getOwnPropertyNames(props),
-            propName => props[propName].attr
-        );
+        static observedAttributes = keys(attributeToPropMap);
     };
 }

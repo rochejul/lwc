@@ -6,63 +6,27 @@
  */
 import assert from '../../shared/assert';
 import { isRendering, vmBeingRendered, isBeingConstructed } from '../invoker';
-import { isObject, toString, isFalse } from '../../shared/language';
+import { toString, isFalse } from '../../shared/language';
 import { valueObserved, valueMutated } from '../../libs/mutation-tracker';
-import { ComponentInterface, ComponentConstructor } from '../component';
+import { ComponentInterface } from '../component';
 import { getComponentVM } from '../vm';
-import { isUndefined, isFunction } from '../../shared/language';
-import { getDecoratorsRegisteredMeta } from './register';
+import { isFunction } from '../../shared/language';
 
 /**
  * @api decorator to mark public fields and public methods in
  * LWC Components. This function implements the internals of this
  * decorator.
  */
-export default function api(
-    target: ComponentConstructor,
-    propName: PropertyKey,
-    descriptor: PropertyDescriptor | undefined
-): PropertyDescriptor {
+// TODO: how to make api a decoratorFunction type as well?
+export default function api() {
     if (process.env.NODE_ENV !== 'production') {
-        if (arguments.length !== 3) {
+        if (arguments.length !== 0) {
             assert.fail(`@api decorator can only be used as a decorator function.`);
         }
     }
-    if (process.env.NODE_ENV !== 'production') {
-        assert.invariant(
-            !descriptor || (isFunction(descriptor.get) || isFunction(descriptor.set)),
-            `Invalid property ${toString(
-                propName
-            )} definition in ${target}, it cannot be a prototype definition if it is a public property. Instead use the constructor to define it.`
-        );
-        if (isObject(descriptor) && isFunction(descriptor.set)) {
-            assert.isTrue(
-                isObject(descriptor) && isFunction(descriptor.get),
-                `Missing getter for property ${toString(
-                    propName
-                )} decorated with @api in ${target}. You cannot have a setter without the corresponding getter.`
-            );
-        }
-    }
-    const meta = getDecoratorsRegisteredMeta(target);
-    // initializing getters and setters for each public prop on the target prototype
-    if (isObject(descriptor) && (isFunction(descriptor.get) || isFunction(descriptor.set))) {
-        // if it is configured as an accessor it must have a descriptor
-        // @ts-ignore it must always be set before calling this method
-        meta.props[propName].config = isFunction(descriptor.set) ? 3 : 1;
-        return createPublicAccessorDescriptor(target, propName, descriptor);
-    } else {
-        // @ts-ignore it must always be set before calling this method
-        meta.props[propName].config = 0;
-        return createPublicPropertyDescriptor(target, propName, descriptor);
-    }
 }
 
-function createPublicPropertyDescriptor(
-    proto: ComponentConstructor,
-    key: PropertyKey,
-    descriptor: PropertyDescriptor | undefined
-): PropertyDescriptor {
+export function createPublicPropertyDescriptor(key: string): PropertyDescriptor {
     return {
         get(this: ComponentInterface): any {
             const vm = getComponentVM(this);
@@ -103,26 +67,17 @@ function createPublicPropertyDescriptor(
                 valueMutated(this, key);
             }
         },
-        enumerable: isUndefined(descriptor) ? true : descriptor.enumerable,
+        enumerable: true,
+        configurable: true,
     };
 }
 
-function createPublicAccessorDescriptor(
-    Ctor: ComponentConstructor,
+export function createPublicAccessorDescriptor(
     key: PropertyKey,
     descriptor: PropertyDescriptor
 ): PropertyDescriptor {
-    const { get, set, enumerable } = descriptor;
+    const { get, set, enumerable, configurable } = descriptor;
     if (!isFunction(get)) {
-        if (process.env.NODE_ENV !== 'production') {
-            assert.fail(
-                `Invalid attempt to create public property descriptor ${toString(
-                    key
-                )} in ${Ctor}. It is missing the getter declaration with @api get ${toString(
-                    key
-                )}() {} syntax.`
-            );
-        }
         throw new TypeError();
     }
     return {
@@ -155,5 +110,6 @@ function createPublicAccessorDescriptor(
             }
         },
         enumerable,
+        configurable,
     };
 }

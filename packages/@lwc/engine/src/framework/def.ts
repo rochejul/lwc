@@ -15,20 +15,16 @@
 
 import assert from '../shared/assert';
 import {
-    assign,
     freeze,
-    create,
     getOwnPropertyNames,
     getPrototypeOf,
     isNull,
     setPrototypeOf,
-    ArrayReduce,
     isUndefined,
     isFunction,
-    defineProperties,
+    ArrayConcat,
 } from '../shared/language';
 import { getInternalField } from '../shared/fields';
-import { getAttrNameFromPropName } from './attributes';
 import {
     resolveCircularModuleDependency,
     isCircularModuleDependency,
@@ -40,19 +36,20 @@ import {
     ComponentMeta,
     getComponentRegisteredMeta,
 } from './component';
-import { createObservedFieldsDescriptorMap } from './observed-fields';
 import { Template } from './template';
 
-export interface ComponentDef extends DecoratorMeta {
+export interface ComponentDef {
     name: string;
+    props: string[];
+    wire: string[];
     template: Template;
     ctor: ComponentConstructor;
     bridge: HTMLElementConstructor;
     connectedCallback?: () => void;
     disconnectedCallback?: () => void;
     renderedCallback?: () => void;
-    render: () => Template;
     errorCallback?: ErrorCallback;
+    render: () => Template;
 }
 
 const CtorToDefMap: WeakMap<any, ComponentDef> = new WeakMap();
@@ -101,19 +98,8 @@ function createComponentDef(
 
     const { name } = meta;
     let { template } = meta;
-    const decoratorsMeta = getDecoratorsRegisteredMeta(Ctor);
-    let props: PropsDef = {};
-    let methods: MethodDef = {};
-    let wire: WireHash | undefined;
-    let track: TrackDef = {};
-    let fields: string[] | undefined;
-    if (!isUndefined(decoratorsMeta)) {
-        props = decoratorsMeta.props;
-        methods = decoratorsMeta.methods;
-        wire = decoratorsMeta.wire;
-        track = decoratorsMeta.track;
-        fields = decoratorsMeta.fields;
-    }
+    const decoratorsMeta = getDecoratorsMeta(Ctor);
+    const { apiFields, apiMethods, wiredFields, wiredMethods } = decoratorsMeta;
     const proto = Ctor.prototype;
 
     let {
@@ -127,43 +113,23 @@ function createComponentDef(
     const superDef: ComponentDef | null =
         (superProto as any) !== BaseLightningElement
             ? getComponentDef(superProto, subclassComponentName)
-            : null;
+            : lightingElementDef;
     const SuperBridge = isNull(superDef) ? BaseBridgeElement : superDef.bridge;
-    const bridge = HTMLBridgeElementFactory(
-        SuperBridge,
-        getOwnPropertyNames(props),
-        getOwnPropertyNames(methods)
-    );
-    if (!isNull(superDef)) {
-        props = assign(create(null), superDef.props, props);
-        methods = assign(create(null), superDef.methods, methods);
-        wire = superDef.wire || wire ? assign(create(null), superDef.wire, wire) : undefined;
-        track = assign(create(null), superDef.track, track);
-        connectedCallback = connectedCallback || superDef.connectedCallback;
-        disconnectedCallback = disconnectedCallback || superDef.disconnectedCallback;
-        renderedCallback = renderedCallback || superDef.renderedCallback;
-        errorCallback = errorCallback || superDef.errorCallback;
-        render = render || superDef.render;
-        template = template || superDef.template;
-    }
-    props = assign(create(null), HTML_PROPS, props);
-
-    if (!isUndefined(fields)) {
-        defineProperties(proto, createObservedFieldsDescriptorMap(fields));
-    }
-
-    if (isUndefined(template)) {
-        // default template
-        template = defaultEmptyTemplate;
-    }
+    const bridge = HTMLBridgeElementFactory(SuperBridge, apiFields, apiMethods);
+    const props = ArrayConcat.call(superDef.props, apiFields);
+    const wire = ArrayConcat.call(superDef.wire, wiredFields, wiredMethods);
+    connectedCallback = connectedCallback || superDef.connectedCallback;
+    disconnectedCallback = disconnectedCallback || superDef.disconnectedCallback;
+    renderedCallback = renderedCallback || superDef.renderedCallback;
+    errorCallback = errorCallback || superDef.errorCallback;
+    render = render || superDef.render;
+    template = template || superDef.template;
 
     const def: ComponentDef = {
         ctor: Ctor,
         name,
         wire,
-        track,
         props,
-        methods,
         bridge,
         template,
         connectedCallback,
@@ -277,29 +243,15 @@ import {
     HTMLBridgeElementFactory,
     HTMLElementConstructor,
 } from './base-bridge-element';
-import {
-    getDecoratorsRegisteredMeta,
-    DecoratorMeta,
-    PropsDef,
-    WireHash,
-    MethodDef,
-    TrackDef,
-} from './decorators/register';
+import { getDecoratorsMeta } from './decorators/register';
 import { defaultEmptyTemplate } from './secure-template';
 
-// Typescript is inferring the wrong function type for this particular
-// overloaded method: https://github.com/Microsoft/TypeScript/issues/27972
-// @ts-ignore type-mismatch
-const HTML_PROPS: PropsDef = ArrayReduce.call(
-    getOwnPropertyNames(HTMLElementOriginalDescriptors),
-    (props: PropsDef, propName: string): PropsDef => {
-        const attrName = getAttrNameFromPropName(propName);
-        props[propName] = {
-            config: 3,
-            type: 'any',
-            attr: attrName,
-        };
-        return props;
-    },
-    create(null)
-);
+const lightingElementDef: ComponentDef = {
+    ctor: BaseLightningElement,
+    name: BaseLightningElement.name,
+    props: getOwnPropertyNames(HTMLElementOriginalDescriptors),
+    wire: [],
+    bridge: BaseBridgeElement,
+    template: defaultEmptyTemplate,
+    render: BaseLightningElement.prototype.render,
+};

@@ -143,7 +143,7 @@ export interface LightningElementConstructor {
 
 export declare var LightningElement: LightningElementConstructor;
 
-export interface LightningElement {
+export interface LightningElement extends EventTarget {
     // DOM - The good parts
     dispatchEvent(event: Event): boolean;
     addEventListener(

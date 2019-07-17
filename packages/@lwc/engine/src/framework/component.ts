@@ -13,16 +13,16 @@ import {
     invokeEventListener,
 } from './invoker';
 import { isArray, isFunction, isUndefined, StringToLowerCase, isFalse } from '../shared/language';
-import { invokeServiceHook, Services } from './services';
 import { VM, getComponentVM, UninitializedVM, scheduleRehydration } from './vm';
 import { VNodes } from '../3rdparty/snabbdom/types';
 import { tagNameGetter } from '../env/element';
 import { Template } from './template';
 import { ReactiveObserver } from '../libs/mutation-tracker';
-import { LightningElementConstructor } from './base-lightning-element';
+import { LightningElementConstructor, LightningElement } from './base-lightning-element';
+import { installWireAdapters } from './decorators/wire';
 
 export type ErrorCallback = (error: any, stack: string) => void;
-export interface ComponentInterface {
+export interface ComponentInterface extends LightningElement {
     // TODO: #1291 - complete the entire interface used by the engine
     setAttribute(attrName: string, value: any): void;
 }
@@ -81,15 +81,9 @@ export function linkComponent(vm: VM) {
     if (process.env.NODE_ENV !== 'production') {
         assert.isTrue(vm && 'cmpRoot' in vm, `${vm} is not a vm.`);
     }
-    // wiring service
-    const {
-        def: { wire },
-    } = vm;
-    if (wire) {
-        const { wiring } = Services;
-        if (wiring) {
-            invokeServiceHook(vm, wiring);
-        }
+    // initializing the wire decorator per instance only when really needed
+    if (vm.def.wire.length > 0) {
+        installWireAdapters(vm);
     }
 }
 

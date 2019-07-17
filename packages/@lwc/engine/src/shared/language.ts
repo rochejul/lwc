@@ -23,10 +23,12 @@ const {
     slice: ArraySlice,
     splice: ArraySplice,
     unshift: ArrayUnshift,
+    shift: ArrayShift,
     indexOf: ArrayIndexOf,
     push: ArrayPush,
     map: ArrayMap,
     join: ArrayJoin,
+    concat: ArrayConcat,
     forEach,
     reduce: ArrayReduce,
 } = Array.prototype;
@@ -36,6 +38,7 @@ const {
     toLowerCase: StringToLowerCase,
     charCodeAt: StringCharCodeAt,
     slice: StringSlice,
+    split: StringSplit,
 } = String.prototype;
 
 export {
@@ -43,6 +46,7 @@ export {
     StringReplace,
     StringCharCodeAt,
     StringSlice,
+    StringSplit,
     freeze,
     seal,
     keys,
@@ -59,8 +63,10 @@ export {
     ArraySlice,
     ArraySplice,
     ArrayUnshift,
+    ArrayShift,
     ArrayMap,
     ArrayJoin,
+    ArrayConcat,
     isArray,
     ArrayIndexOf,
     ArrayPush,

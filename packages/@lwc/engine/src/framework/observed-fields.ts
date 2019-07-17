@@ -9,21 +9,9 @@ import { getComponentVM } from './vm';
 import assert from '../shared/assert';
 import { valueMutated, valueObserved } from '../libs/mutation-tracker';
 import { isRendering, vmBeingRendered } from './invoker';
-import { isFalse, ArrayReduce } from '../shared/language';
+import { isFalse } from '../shared/language';
 
-export function createObservedFieldsDescriptorMap(fields: PropertyKey[]): PropertyDescriptorMap {
-    return ArrayReduce.call(
-        fields,
-        (acc: PropertyDescriptorMap, field) => {
-            acc[field] = createObservedFieldPropertyDescriptor(field);
-
-            return acc;
-        },
-        {}
-    ) as PropertyDescriptorMap;
-}
-
-function createObservedFieldPropertyDescriptor(key: PropertyKey): PropertyDescriptor {
+export function createObservedFieldPropertyDescriptor(key: string): PropertyDescriptor {
     return {
         get(this: ComponentInterface): any {
             const vm = getComponentVM(this);
@@ -31,7 +19,7 @@ function createObservedFieldPropertyDescriptor(key: PropertyKey): PropertyDescri
                 assert.isTrue(vm && 'cmpRoot' in vm, `${vm} is not a valid vm.`);
             }
             valueObserved(this, key);
-            return vm.cmpTrack[key];
+            return vm.cmpFields[key];
         },
         set(this: ComponentInterface, newValue: any) {
             const vm = getComponentVM(this);
@@ -45,8 +33,8 @@ function createObservedFieldPropertyDescriptor(key: PropertyKey): PropertyDescri
                 );
             }
 
-            if (newValue !== vm.cmpTrack[key]) {
-                vm.cmpTrack[key] = newValue;
+            if (newValue !== vm.cmpFields[key]) {
+                vm.cmpFields[key] = newValue;
                 if (isFalse(vm.isDirty)) {
                     valueMutated(this, key);
                 }

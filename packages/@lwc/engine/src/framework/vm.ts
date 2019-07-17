@@ -56,6 +56,7 @@ import { parentElementGetter, parentNodeGetter } from '../env/node';
 import { updateDynamicChildren, updateStaticChildren } from '../3rdparty/snabbdom/snabbdom';
 import { hasDynamicChildren } from './hooks';
 import { ReactiveObserver } from '../libs/mutation-tracker';
+import { connectWireAdapters, disconnectWireAdapters } from './decorators/wire';
 
 export interface SlotSet {
     [key: string]: VNodes;
@@ -86,9 +87,9 @@ export interface UninitializedVM {
     /** Adopted Children List */
     aChildren: VNodes;
     velements: VCustomElement[];
-    cmpProps: any;
+    cmpProps: Record<string, any>;
     cmpSlots: SlotSet;
-    cmpTrack: any;
+    cmpFields: Record<string, any>;
     callHook: (
         cmp: ComponentInterface | undefined,
         fn: (...args: any[]) => any,
@@ -230,7 +231,7 @@ export function createVM(elm: HTMLElement, Ctor: ComponentConstructor, options: 
         data: EmptyObject,
         context: create(null),
         cmpProps: create(null),
-        cmpTrack: create(null),
+        cmpFields: create(null),
         cmpSlots: useSyntheticShadow ? create(null) : undefined,
         callHook,
         setHook,
@@ -388,6 +389,13 @@ function runConnectedCallback(vm: VM) {
     if (connected) {
         invokeServiceHook(vm, connected);
     }
+    // TODO: eventually this should be done by node-reactions on the wire.ts directly
+    const {
+        def: { wire },
+    } = vm;
+    if (wire.length > 0) {
+        connectWireAdapters(vm);
+    }
     const { connectedCallback } = vm.def;
     if (!isUndefined(connectedCallback)) {
         if (process.env.NODE_ENV !== 'production') {
@@ -419,6 +427,13 @@ function runDisconnectedCallback(vm: VM) {
     const { disconnected } = Services;
     if (disconnected) {
         invokeServiceHook(vm, disconnected);
+    }
+    // TODO: eventually this should be done by node-reactions on the wire.ts directly
+    const {
+        def: { wire },
+    } = vm;
+    if (wire.length > 0) {
+        disconnectWireAdapters(vm);
     }
     const { disconnectedCallback } = vm.def;
     if (!isUndefined(disconnectedCallback)) {
