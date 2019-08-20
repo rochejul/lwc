@@ -156,7 +156,6 @@ export function registerDecorators(
     const apiFields = [];
     const wiredMethods = [];
     const wiredFields = [];
-    const observedFields = [];
     if (!isUndefined(publicProps)) {
         for (const fieldName in publicProps) {
             const propConfig = publicProps[fieldName];
@@ -243,7 +242,6 @@ export function registerDecorators(
         apiFields,
         wiredMethods,
         wiredFields,
-        observedFields,
     });
     return Ctor;
 }
@@ -255,7 +253,6 @@ interface DecoratorMeta {
     readonly apiFields: string[];
     readonly wiredMethods: string[];
     readonly wiredFields: string[];
-    readonly observedFields: string[]
 }
 
 function setDecoratorsMeta(Ctor: ComponentConstructor, meta: DecoratorMeta) {
@@ -267,7 +264,6 @@ const defaultMeta: DecoratorMeta = {
     apiFields: [],
     wiredMethods: [],
     wiredFields: [],
-    observedFields: [],
 };
 
 export function getDecoratorsMeta(Ctor: ComponentConstructor): DecoratorMeta {
